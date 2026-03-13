@@ -208,9 +208,12 @@ var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyPydOtaqQNY2pUOd
 // Use a CORS proxy when the app is hosted on another domain (e.g. GitHub Pages).
 // script.google.com often blocks cross-origin requests; the proxy adds CORS headers.
 var USE_CORS_PROXY = true;
-// allorigins.win is free for GET; corsproxy.io free tier is localhost-only.
-var CORS_PROXY_GET = 'https://api.allorigins.win/raw?url=';
-// POST: we don't proxy (no free cross-origin POST proxy). Direct to Apps Script may work.
+// Try these GET proxies in order (first that works wins). Free tiers can rate-limit or fail.
+var CORS_PROXY_GET_LIST = [
+  'https://api.allorigins.win/raw?url=',
+  'https://api.codetabs.com/v1/proxy?quest='
+];
+var CORS_PROXY_GET = CORS_PROXY_GET_LIST[0];
 var CORS_PROXY_POST = '';
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -279,7 +282,16 @@ function apiFetch(method, params) {
         }
       }
     }
-    url = wrapUrlForCors(url);
+    if (!USE_CORS_PROXY) {
+      return fetch(url, fetchOpts).then(function(r){ return parseResponse(r, true); }).catch(function(err) {
+        if (err && err.status != null) throw err;
+        if (err && err.parseError) throw err;
+        var wrap = new Error(err && err.message ? err.message : 'Network or CORS error');
+        wrap.networkError = true; wrap.reason = err && err.message ? err.message : String(err);
+        throw wrap;
+      });
+    }
+    return fetchWithProxyList(url);
   }
   return fetch(url, fetchOpts)
     .then(function(r) { return parseResponse(r, true); })
@@ -291,6 +303,23 @@ function apiFetch(method, params) {
       wrap.reason = err && err.message ? err.message : String(err);
       throw wrap;
     });
+}
+function fetchWithProxyList(targetUrl) {
+  var list = CORS_PROXY_GET_LIST || [];
+  function tryOne(i) {
+    var fullUrl = list[i] ? (list[i] + encodeURIComponent(targetUrl)) : targetUrl;
+    return fetch(fullUrl).then(function(r) { return parseResponse(r, true); }).then(function(data) {
+      return data;
+    }).catch(function(err) {
+      if (i + 1 < list.length) return tryOne(i + 1);
+      if (err && err.status != null) throw err;
+      if (err && err.parseError) throw err;
+      var wrap = new Error(err && err.message ? err.message : 'Network or CORS error');
+      wrap.networkError = true; wrap.reason = (err && err.message ? err.message : String(err)) + ' (tried ' + list.length + ' proxy)';
+      throw wrap;
+    });
+  }
+  return tryOne(0);
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────
