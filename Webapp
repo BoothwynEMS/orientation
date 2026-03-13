@@ -204,7 +204,7 @@ button.save{margin-top:0;}
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURE THIS — paste your Apps Script /exec URL here:
 // ─────────────────────────────────────────────────────────────────────────────
-var APPS_SCRIPT_URL = 'PASTE_YOUR_EXEC_URL_HERE';
+var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyPydOtaqQNY2pUOdBYjdwTCOT2Vrw2Q8yeFzRV3-3ZxXnNjgkAFb_BwIQr8ZQ7N5ghUA/exec';
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Global state ──
