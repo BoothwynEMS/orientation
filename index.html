@@ -205,6 +205,11 @@ button.save{margin-top:0;}
 // CONFIGURE THIS — paste your Apps Script /exec URL here:
 // ─────────────────────────────────────────────────────────────────────────────
 var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyPydOtaqQNY2pUOdBYjdwTCOT2Vrw2Q8yeFzRV3-3ZxXnNjgkAFb_BwIQr8ZQ7N5ghUA/exec';
+// Use a CORS proxy when the app is hosted on another domain (e.g. GitHub Pages).
+// script.google.com often blocks cross-origin requests; the proxy adds CORS headers.
+var USE_CORS_PROXY = true;
+var CORS_PROXY_GET = 'https://corsproxy.io/?';
+var CORS_PROXY_POST = 'https://corsproxy.io/?';
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Global state ──
@@ -217,26 +222,72 @@ var _saveTimer=null, _fbCacheByTrainee={}, _fbFormTrainee=null, _fbList=[];
 window.onerror=function(msg,src,line){try{var s=document.getElementById('initStatus');if(s){s.textContent='JS Error: '+msg+' (line '+line+')';s.style.color='#dc2626';s.style.display='';}}catch(e){}return true;};
 
 // ── API fetch layer (replaces google.script.run) ──────────────────────────
+function wrapUrlForCors(url) {
+  if (!USE_CORS_PROXY) return url;
+  return CORS_PROXY_GET + encodeURIComponent(url);
+}
+// Returns a debug object for display: { summary, details } or plain string.
+function formatFetchError(err) {
+  if (!err) return { summary: 'Unknown error', details: '' };
+  if (typeof err === 'string') return { summary: err, details: '' };
+  var summary = err.message || err.summary || 'Request failed';
+  var parts = [];
+  if (err.status != null) parts.push('HTTP ' + err.status + (err.statusText ? ' ' + err.statusText : ''));
+  if (err.parseError && err.bodyPreview) parts.push('Response was not JSON. First 300 chars: ' + err.bodyPreview);
+  else if (err.bodyPreview) parts.push('Body: ' + err.bodyPreview);
+  if (err.networkError) parts.push('Network/CORS error: ' + (err.reason || 'could not reach server'));
+  var details = parts.length ? parts.join(' | ') : (err.details || '');
+  return { summary: summary, details: details };
+}
+function parseResponse(r, isGet) {
+  return r.text().then(function(t) {
+    if (!r.ok) {
+      var err = new Error('HTTP ' + r.status + (r.statusText ? ' ' + r.statusText : ''));
+      err.status = r.status;
+      err.statusText = r.statusText;
+      err.bodyPreview = t ? t.substring(0, 300) : '';
+      throw err;
+    }
+    try {
+      return JSON.parse(t);
+    } catch (e) {
+      var err2 = new Error('Server returned non-JSON (old deployment? or CORS proxy returned HTML)');
+      err2.parseError = true;
+      err2.bodyPreview = t ? t.substring(0, 300) : '(empty)';
+      throw err2;
+    }
+  });
+}
 function apiFetch(method, params) {
+  var fetchOpts = {};
+  var url;
   if (method === 'updateSkills' || method === 'submitFeedback') {
-    return fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ method: method, params: params }),
-      headers: { 'Content-Type': 'text/plain' }
-    }).then(function(r){ return r.json(); });
-  }
-  var url = APPS_SCRIPT_URL + '?api=' + encodeURIComponent(method);
-  if (params) {
-    for (var k in params) {
-      if (params.hasOwnProperty(k)) {
-        var v = params[k];
-        url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(
-          (typeof v === 'object') ? JSON.stringify(v) : String(v===null||v===undefined?'':v)
-        );
+    url = USE_CORS_PROXY ? (CORS_PROXY_POST + encodeURIComponent(APPS_SCRIPT_URL)) : APPS_SCRIPT_URL;
+    fetchOpts = { method: 'POST', body: JSON.stringify({ method: method, params: params }), headers: { 'Content-Type': 'text/plain' } };
+  } else {
+    url = APPS_SCRIPT_URL + '?api=' + encodeURIComponent(method);
+    if (params) {
+      for (var k in params) {
+        if (params.hasOwnProperty(k)) {
+          var v = params[k];
+          url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(
+            (typeof v === 'object') ? JSON.stringify(v) : String(v===null||v===undefined?'':v)
+          );
+        }
       }
     }
+    url = wrapUrlForCors(url);
   }
-  return fetch(url).then(function(r){ return r.json(); });
+  return fetch(url, fetchOpts)
+    .then(function(r) { return parseResponse(r, true); })
+    .catch(function(err) {
+      if (err && err.status != null) throw err;
+      if (err && err.parseError) throw err;
+      var wrap = new Error(err && err.message ? err.message : 'Network or CORS error');
+      wrap.networkError = true;
+      wrap.reason = err && err.message ? err.message : String(err);
+      throw wrap;
+    });
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────
@@ -279,9 +330,12 @@ function showApp(){
       } else {
         if(errEl)errEl.textContent='Wrong password.';
       }
-    }).catch(function(){
+    }).catch(function(err){
       if(btn)btn.disabled=false;
-      if(errEl)errEl.textContent='Connection error. Check APPS_SCRIPT_URL.';
+      if(errEl){
+        var d=formatFetchError(err);
+        errEl.innerHTML='<strong>'+esc(d.summary)+'</strong>'+(d.details?'<br><span style="font-size:.8em;word-break:break-all;">'+esc(d.details)+'</span>':'');
+      }
     });
   }
   if(btn)btn.onclick=doLogin;
@@ -351,7 +405,10 @@ function loadTraineeList(){
       el.innerHTML='<p class="err">'+esc((data&&data._error)||'Error loading data.')+'</p>';return;
     }
     _appDataCache=data;renderTraineeList();
-  }).catch(function(){el.innerHTML='<p class="err">Error loading data. Check APPS_SCRIPT_URL.</p>';});
+  }).catch(function(err){
+    var d=formatFetchError(err);
+    el.innerHTML='<p class="err"><strong>'+esc(d.summary)+'</strong>'+(d.details?'<br><span style="font-size:.8em;word-break:break-all;">'+esc(d.details)+'</span>':'')+'</p>';
+  });
 }
 
 // ── Shift/crew screen ─────────────────────────────────────────────────────
@@ -402,10 +459,11 @@ function openTrainee(id,name){
       if(contBtn)contBtn.style.display='block';
     };
     shiftSel.onchange();
-  }).catch(function(){
+  }).catch(function(err){
+    var d=formatFetchError(err);
     shiftSel.innerHTML='<option value="">Error loading shifts</option>';
     if(fallback)fallback.style.display='block';
-    var noMsg=document.getElementById('noShiftsMsg');if(noMsg){noMsg.style.display='block';noMsg.textContent='Could not load shifts. Use manual override.';}
+    var noMsg=document.getElementById('noShiftsMsg');if(noMsg){noMsg.style.display='block';noMsg.innerHTML='<strong>'+esc(d.summary)+'</strong>'+(d.details?'<br><span style="font-size:.8em;">'+esc(d.details)+'</span>':'');}
   });
 }
 
@@ -501,7 +559,10 @@ function goToSkills(){
   area.innerHTML='<p class="loading">⏳ Loading...</p>';
   apiFetch('getSkills',{traineeId:currentTraineeId,token:TOKEN}).then(function(data){
     renderSkills(data&&data.skills?data.skills:[]);
-  }).catch(function(){area.innerHTML='<p class="err">Error loading skills.</p>';});
+  }).catch(function(err){
+    var d=formatFetchError(err);
+    area.innerHTML='<p class="err"><strong>'+esc(d.summary)+'</strong>'+(d.details?'<br><span style="font-size:.8em;word-break:break-all;">'+esc(d.details)+'</span>':'')+'</p>';
+  });
 }
 
 function saveSkills(isAuto){
@@ -533,7 +594,7 @@ function saveSkills(isAuto){
     },1200);
   }).catch(function(err){
     if(saveBtn)saveBtn.disabled=false;_hideSaveIndicator();
-    if(msgEl){msgEl.textContent=(err&&err.message?err.message:'Save failed.');msgEl.className='msg err';}
+    if(msgEl){var d=formatFetchError(err);msgEl.innerHTML='<strong>'+esc(d.summary)+'</strong>'+(d.details?' '+esc(d.details):'');msgEl.className='msg err';}
   });
 }
 
@@ -554,7 +615,10 @@ function loadFeedbackHistory(){
   area.innerHTML='<p class="loading">⏳ Loading feedback history...</p>';
   apiFetch('getFeedback',{traineeId:currentTraineeId,token:TOKEN}).then(function(list){
     _fbCacheByTrainee[currentTraineeId]=list||[];renderFeedbackHistory(_fbCacheByTrainee[currentTraineeId]);
-  }).catch(function(){area.innerHTML='<p class="err">Error loading feedback.</p>';});
+  }).catch(function(err){
+    var d=formatFetchError(err);
+    area.innerHTML='<p class="err"><strong>'+esc(d.summary)+'</strong>'+(d.details?'<br><span style="font-size:.8em;">'+esc(d.details)+'</span>':'')+'</p>';
+  });
 }
 
 function recBadgeClass(rec){if(!rec)return'';if(/advance|on track/i.test(rec))return'rec-track';if(/concern|escalate/i.test(rec))return'rec-concern';return'rec-caution';}
@@ -639,7 +703,7 @@ function submitFeedbackForm(){
     delete _fbCacheByTrainee[currentTraineeId];
   }).catch(function(err){
     if(submitBtn)submitBtn.disabled=false;
-    if(msgEl){msgEl.textContent=(err&&err.message?err.message:'Submit failed.');msgEl.className='msg err';}
+    if(msgEl){var d=formatFetchError(err);msgEl.innerHTML='<strong>'+esc(d.summary)+'</strong>'+(d.details?' '+esc(d.details):'');msgEl.className='msg err';}
   });
 }
 
