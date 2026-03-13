@@ -208,8 +208,10 @@ var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyPydOtaqQNY2pUOd
 // Use a CORS proxy when the app is hosted on another domain (e.g. GitHub Pages).
 // script.google.com often blocks cross-origin requests; the proxy adds CORS headers.
 var USE_CORS_PROXY = true;
-var CORS_PROXY_GET = 'https://corsproxy.io/?';
-var CORS_PROXY_POST = 'https://corsproxy.io/?';
+// allorigins.win is free for GET; corsproxy.io free tier is localhost-only.
+var CORS_PROXY_GET = 'https://api.allorigins.win/raw?url=';
+// POST: we don't proxy (no free cross-origin POST proxy). Direct to Apps Script may work.
+var CORS_PROXY_POST = '';
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Global state ──
@@ -262,7 +264,8 @@ function apiFetch(method, params) {
   var fetchOpts = {};
   var url;
   if (method === 'updateSkills' || method === 'submitFeedback') {
-    url = USE_CORS_PROXY ? (CORS_PROXY_POST + encodeURIComponent(APPS_SCRIPT_URL)) : APPS_SCRIPT_URL;
+    // POST goes direct to Apps Script (no free CORS proxy for POST from production).
+    url = APPS_SCRIPT_URL;
     fetchOpts = { method: 'POST', body: JSON.stringify({ method: method, params: params }), headers: { 'Content-Type': 'text/plain' } };
   } else {
     url = APPS_SCRIPT_URL + '?api=' + encodeURIComponent(method);
