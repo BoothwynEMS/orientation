@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Boothwyn EMS — Employee Orientation Tracker</title>
+<style>
+/* ─────────────────────────────────────────────────────────────
+   CONFIGURE: paste your Apps Script /exec URL below.
+   Redeploy Apps Script after any code changes (New version).
+───────────────────────────────────────────────────────────── */
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN SCREEN ── -->
+<div id="loginWrap" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);">
+  <div style="background:#fff;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);padding:2rem;max-width:360px;width:90%;">
+    <h1 style="margin:0 0 .5rem;font-size:1.5rem;color:#0f172a;">🚑 Boothwyn EMS</h1>
+    <p style="color:#64748b;font-size:.875rem;margin:0 0 1.5rem;">Employee Orientation Tracker — enter the shared password to continue.</p>
+    <input type="password" id="pwInput" placeholder="Password" autocomplete="current-password"
+      style="width:100%;box-sizing:border-box;padding:.75rem 1rem;border:1px solid #e2e8f0;border-radius:8px;font-size:1rem;margin-bottom:1rem;">
+    <button id="signInBtn" style="width:100%;padding:.75rem 1rem;background:#0284c7;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;">Sign in</button>
+    <div id="loginErr" style="color:#dc2626;font-size:.875rem;margin-top:.75rem;"></div>
+  </div>
+</div>
+
+<!-- ── MAIN APP SHELL (hidden until logged in) ── -->
+<div id="appShell" style="display:none;">
+
+<style>
+*{box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;background:#f1f5f9;color:#0f172a;line-height:1.5;}
+.top{background:linear-gradient(135deg,#0c4a6e 0%,#0369a1 100%);color:#fff;padding:1rem 1.5rem;box-shadow:0 2px 8px rgba(0,0,0,.12);}
+.top h1{margin:0;font-size:1.25rem;font-weight:700;}.top h1 .product-name{font-weight:500;opacity:.9;font-size:1rem;}
+.top .sub{font-size:.8125rem;color:#bae6fd;margin-top:4px;}
+.top a{color:#bae6fd;text-decoration:none;font-size:.875rem;}.top a:hover{text-decoration:underline;}
+.container{max-width:1200px;margin:0 auto;padding:1.5rem;}
+body:has(#screenDetail.on) .container{max-width:min(1600px,96vw);}
+.card{background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:1rem;overflow:hidden;border:1px solid rgba(0,0,0,.04);}
+.card h2{margin:0;padding:1rem 1.25rem;font-size:1rem;font-weight:600;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#0f172a;}
+.screen{display:none;}.screen.on{display:block;animation:fadeIn .25s ease;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.field{margin-bottom:1.25rem;}label{display:block;font-size:.875rem;font-weight:600;color:#475569;margin-bottom:6px;}
+select,input[type=text],input[type=password]{width:100%;max-width:400px;padding:.75rem 1rem;border:1px solid #e2e8f0;border-radius:8px;font-size:1rem;}
+button{padding:.75rem 1.25rem;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;border:none;margin-top:.5rem;transition:background .2s,box-shadow .2s;}
+button.primary{background:#0284c7;color:#fff;}button.primary:hover{background:#0369a1;}
+button.secondary{background:#e2e8f0;color:#475569;}button.secondary:hover{background:#cbd5e1;}
+button:focus-visible,a:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(2,132,199,.5);}
+select:focus-visible,input:focus-visible,textarea:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(2,132,199,.25);}
+.trainee-list{display:grid;gap:1rem;}
+.archived-heading{font-size:1rem;font-weight:600;color:#64748b;margin:1.5rem 0 .75rem;padding-top:1rem;border-top:1px solid #e2e8f0;}
+.trainee-list-archived .trainee-card{opacity:.92;}
+.trainee-card{background:#fff;border-radius:14px;padding:1.35rem 1.5rem;box-shadow:0 2px 6px rgba(0,0,0,.06);border:1px solid #e2e8f0;cursor:pointer;transition:box-shadow .25s,border-color .25s,transform .2s;}
+.trainee-card:hover{box-shadow:0 6px 16px rgba(0,0,0,.1);border-color:#cbd5e1;transform:translateY(-1px);}
+.trainee-card .name{font-size:1.125rem;font-weight:600;color:#0f172a;margin-bottom:4px;}
+.trainee-card .role{font-size:.875rem;color:#64748b;margin-bottom:4px;}
+.trainee-card .trainee-contact,.trainee-card .trainee-days{font-size:.8125rem;color:#64748b;margin-bottom:4px;}
+.trainee-card .pct{font-size:.875rem;font-weight:600;color:#0369a1;}.trainee-card .pct span{color:#64748b;font-weight:400;}
+.pct-bar{height:8px;border-radius:4px;background:#e2e8f0;margin-top:8px;overflow:hidden;}
+.pct-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#0ea5e9,#0284c7);transition:width .3s;}
+table{width:100%;border-collapse:collapse;}th,td{padding:12px 14px;text-align:left;border-bottom:1px solid #f1f5f9;}
+th{background:#f8fafc;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:600;}
+select.skill-status{padding:8px 12px;font-size:.875rem;border-radius:8px;border:1px solid #e2e8f0;min-width:160px;}
+.status-not{color:#64748b;}.status-progress{color:#b45309;}.status-done{color:#15803d;}
+button.save{padding:10px 20px;margin:1rem 1.25rem;}.msg{padding:1rem 1.25rem;color:#15803d;font-size:.875rem;}.err{color:#dc2626;}
+.loading{color:#64748b;padding:1.5rem;font-size:.9375rem;}
+.back-wrap{margin-bottom:1rem;padding:.5rem 0;}
+.back-wrap a,.back-wrap button{border-radius:8px;}
+.detail-header-sticky{background:#f1f5f9;padding-bottom:.75rem;margin:0 -1.5rem;padding-left:1.5rem;padding-right:1.5rem;margin-bottom:.5rem;}
+.detail-meta-progress{background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:1.25rem;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden;}
+.dm-progress-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;padding:1.15rem 1.35rem;background:linear-gradient(135deg,#f8fafc 0%,#eff6ff 100%);border-bottom:1px solid #e2e8f0;}
+.dm-progress-left{font-size:1.25rem;font-weight:700;color:#0f172a;}
+.dm-progress-right{font-size:1rem;font-weight:600;color:#0369a1;}
+.dm-progress-body{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;padding:1.15rem 1.35rem;}
+@media(max-width:640px){.dm-progress-body{grid-template-columns:1fr;}}
+.dm-progress-meta .dm-row{font-size:.875rem;color:#475569;margin-bottom:6px;}
+.dm-progress-meta .dm-row span{color:#64748b;margin-right:6px;}
+.dm-progress-rest .pb-title{font-weight:700;font-size:.8125rem;color:#1e3a5f;margin-bottom:6px;}
+.dm-progress-rest .pb-current{font-size:.875rem;color:#334155;margin-bottom:6px;}
+.dm-progress-rest .pb-timeline{font-size:.8125rem;color:#64748b;list-style:none;margin:0;padding:0;}
+.dm-progress-rest .pb-timeline li{margin-bottom:4px;}
+tr.row-not td{background:#fef2f2;}tr.row-progress td{background:#fffbeb;}tr.row-done td{background:#f0fdf4;}
+.skills-summary{padding:1.15rem 1.35rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;margin-bottom:1.25rem;}
+.skills-summary .sum-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.skills-summary strong{font-size:1rem;color:#1e3a5f;}
+.skills-summary .sum-count{font-size:.875rem;color:#64748b;}
+.cat-section{background:#fff;border-radius:14px;box-shadow:0 2px 6px rgba(0,0,0,.06);margin-bottom:1.35rem;overflow:hidden;border:1px solid rgba(0,0,0,.04);}
+.cat-header{padding:.75rem 1.25rem;background:#f8fafc;border-bottom:2px solid #e2e8f0;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;}
+.cat-name{font-weight:700;font-size:.8125rem;text-transform:uppercase;letter-spacing:.05em;color:#334155;flex:1;}
+.cat-pct{font-size:.8125rem;color:#64748b;white-space:nowrap;}
+.cat-bar{height:6px;border-radius:3px;background:#e2e8f0;width:90px;overflow:hidden;flex-shrink:0;}
+.cat-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#0ea5e9,#0284c7);}
+.note-cell{min-width:170px;max-width:230px;}
+.last-note{font-size:.75rem;color:#94a3b8;font-style:italic;line-height:1.4;margin-bottom:4px;min-height:.875rem;word-break:break-word;}
+input.note-input{padding:5px 8px;font-size:.8125rem;margin:0;max-width:none;width:100%;border:1px solid #e2e8f0;border-radius:6px;}
+.save-bar{padding:.875rem 1.25rem;display:flex;align-items:center;gap:1rem;border-top:2px solid #e2e8f0;background:#fff;position:sticky;bottom:0;z-index:80;box-shadow:0 -3px 12px rgba(0,0,0,.1);}
+button.save{margin-top:0;}
+.save-indicator{font-size:.8125rem;color:#64748b;display:flex;align-items:center;gap:.4rem;}
+.save-dot{width:8px;height:8px;border-radius:50%;background:#e2e8f0;flex-shrink:0;transition:background .3s;}
+.save-dot.pending{background:#f59e0b;}.save-dot.saving{background:#0284c7;animation:pulse .8s infinite;}.save-dot.saved{background:#22c55e;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.skills-table-wrap{display:block;}.skills-cards-wrap{display:none;}
+.skill-card{border:1px solid #e2e8f0;border-radius:10px;padding:1rem;margin-bottom:.75rem;background:#fff;}
+.skill-card .skill-name{font-weight:600;font-size:.9375rem;color:#0f172a;margin-bottom:8px;}
+.skill-card .last-note{font-size:.75rem;color:#94a3b8;font-style:italic;margin-bottom:6px;word-break:break-word;}
+.skill-card .note-input{margin-top:6px;}
+.skill-card select.skill-status{width:100%;max-width:none;margin-bottom:4px;}
+.skill-card.row-not{background:#fef2f2;border-color:#fecaca;}.skill-card.row-progress{background:#fffbeb;border-color:#fde68a;}.skill-card.row-done{background:#f0fdf4;border-color:#bbf7d0;}
+@media(max-width:768px){.skills-table-wrap{display:none !important;}.skills-cards-wrap{display:block !important;}}
+@media(min-width:769px){.skills-cards-wrap{display:none !important;}}
+.tab-bar{display:flex;gap:0;margin-bottom:1.25rem;border-bottom:2px solid #e2e8f0;}
+.tab-btn{padding:.6rem 1.25rem;border:none;background:none;font-size:.9375rem;font-weight:600;cursor:pointer;color:#64748b;border-bottom:3px solid transparent;margin-bottom:-2px;border-radius:0;transition:color .15s;}
+.tab-btn:hover{color:#0284c7;}.tab-active{color:#0284c7 !important;border-bottom-color:#0284c7;}
+.tab-panel{display:none;}.tab-panel.on{display:block;}
+.detail-three-col{display:grid;gap:1.5rem;align-items:start;}
+.detail-three-col .detail-left,.detail-three-col .detail-center,.detail-three-col .detail-right{min-width:0;}
+.detail-three-col .detail-left h3.fb-col-title,.detail-three-col .detail-right h3.fb-col-title{font-size:.875rem;font-weight:700;color:#475569;margin:0 0 .75rem;padding-bottom:.5rem;border-bottom:1px solid #e2e8f0;}
+@media(min-width:1024px){.detail-three-col{grid-template-columns:1fr 2fr 1fr;}.detail-three-col .detail-left,.detail-three-col .detail-center,.detail-three-col .detail-right{display:block !important;}body:has(#screenDetail.on) .tab-bar{display:none;}}
+@media(max-width:1023px){.detail-three-col{display:block;}.detail-three-col .detail-left,.detail-three-col .detail-center,.detail-three-col .detail-right{display:none;}.detail-three-col.view-skills .detail-center{display:block;}.detail-three-col.view-feedback .detail-left{display:block;}.detail-three-col.view-feedback .detail-right{display:block;margin-top:1.5rem;}}
+.fb-list{display:grid;gap:1rem;}.fb-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.25rem;box-shadow:0 2px 6px rgba(0,0,0,.06);}
+.fb-meta{font-size:.8125rem;color:#64748b;display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:.875rem;padding-bottom:.75rem;border-bottom:1px solid #f1f5f9;}
+.fb-meta span{white-space:nowrap;}
+.fb-sections{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.875rem;}
+.fb-sec .fb-lbl{font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:3px;}
+.fb-sec .fb-val{font-size:.875rem;color:#0f172a;white-space:pre-wrap;line-height:1.5;}
+.fb-sec.fb-full{grid-column:1/-1;}
+.rec-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;}
+.rec-track{background:#dcfce7;color:#15803d;}.rec-caution{background:#fef9c3;color:#92400e;}.rec-concern{background:#fee2e2;color:#991b1b;}
+.fb-form{background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:1.5rem;border:1px solid rgba(0,0,0,.04);}
+.fb-form h3{margin:0 0 1.25rem;font-size:1rem;color:#0f172a;padding-bottom:.75rem;border-bottom:1px solid #e2e8f0;}
+.fb-form .auto-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.75rem;margin-bottom:1.25rem;padding:1rem;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;}
+.auto-field .af-lbl{font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:2px;}
+.auto-field .af-val{font-size:.875rem;color:#334155;font-weight:600;}
+.fb-form .fb-field{margin-bottom:1.25rem;}
+.fb-form .fb-field label{display:block;font-size:.875rem;font-weight:600;color:#475569;margin-bottom:6px;}
+.fb-form textarea{width:100%;padding:.75rem 1rem;border:1px solid #e2e8f0;border-radius:8px;font-size:.9375rem;resize:vertical;min-height:80px;box-sizing:border-box;font-family:inherit;}
+.fb-form textarea:focus{outline:none;border-color:#0284c7;box-shadow:0 0 0 3px rgba(2,132,199,.15);}
+.fb-form select.rec-select{max-width:100%;width:100%;padding:.75rem 1rem;border:1px solid #e2e8f0;border-radius:8px;font-size:.9375rem;}
+.fb-submit-bar{display:flex;align-items:center;gap:1rem;padding-top:1rem;border-top:1px solid #e2e8f0;}
+</style>
+
+<div class="top">
+  <h1>Boothwyn EMS <span class="product-name">&#8212; Employee Orientation Tracker</span></h1>
+  <div class="sub" id="ftoLabel"></div>
+  <a href="#" id="backLink">&#8592; Back</a>
+</div>
+<div class="container">
+  <p id="initStatus" style="color:#64748b;margin:1rem 0;">⏳ Loading...</p>
+
+  <div id="screenList" class="screen">
+    <h2 style="margin:0 0 1rem;font-size:1.125rem;color:#0f172a;">👥 Trainees</h2>
+    <div id="traineeList" class="trainee-list"><p class="loading">⏳ Loading...</p></div>
+  </div>
+
+  <div id="screenShiftCrew" class="screen card" style="padding:1.25rem;">
+    <h2 id="shiftCrewTitle" style="margin:0 0 1rem;font-size:1rem;font-weight:600;color:#0f172a;">📅 Select shift &amp; who you are</h2>
+    <p id="shiftWindowDesc" style="color:#64748b;font-size:.875rem;margin:0 0 1rem;">Shifts where this trainee is scheduled (last 72 hours, next 24 hours).</p>
+    <div id="noShiftsMsg" style="display:none;margin-bottom:1rem;padding:.875rem 1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:.875rem;color:#991b1b;"></div>
+    <div class="field"><label for="shiftSelect">Shift</label><select id="shiftSelect"><option value="">⏳ Loading...</option></select></div>
+    <div class="field"><label for="crewSelect">Who are you? 👀</label><select id="crewSelect"><option value="">Select a shift first</option></select></div>
+    <p style="margin-top:.75rem;"><a href="#" id="showManualOverride" style="font-size:.875rem;color:#0284c7;">✏️ Your name is not on this list</a></p>
+    <div id="shiftCrewFallback" style="display:none;margin-top:1rem;padding:1rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+      <p style="font-size:.8125rem;color:#64748b;margin:0 0 .5rem;"><strong>✏️ Manual override</strong></p>
+      <div class="field"><label for="ftoNameFallback">Enter your name</label><input type="text" id="ftoNameFallback" placeholder="Your name"></div>
+      <button type="button" class="primary" id="continueFallback">Continue</button>
+    </div>
+    <button type="button" class="primary" id="continueToSkills" style="display:none;">✨ Continue to skills</button>
+  </div>
+
+  <div id="screenDetail" class="screen">
+    <div class="detail-header-sticky">
+      <div class="back-wrap" style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+        <a href="#" id="backToList" style="display:inline-block;padding:8px 16px;text-decoration:none;color:#475569;border-radius:8px;background:#e2e8f0;font-size:.875rem;">← Back to trainees</a>
+        <button type="button" class="secondary" id="printSkillCardBtn" style="padding:8px 16px;font-size:.875rem;">🖨️ Print orientation tracker</button>
+      </div>
+      <div id="detailMetaProgress" class="detail-meta-progress">
+        <div class="dm-progress-bar">
+          <div id="detailMetaLeft" class="dm-progress-left"></div>
+          <div id="progressBlockRight" class="dm-progress-right"></div>
+        </div>
+        <div class="dm-progress-body">
+          <div id="detailMetaRest" class="dm-progress-meta"></div>
+          <div id="progressBlockRest" class="dm-progress-rest"></div>
+        </div>
+      </div>
+      <div class="tab-bar">
+        <button id="tabBtnSkills" class="tab-btn tab-active" onclick="showDetailTab('skills')">📋 Skills</button>
+        <button id="tabBtnFeedback" class="tab-btn" onclick="showDetailTab('feedback')">💬 Feedback</button>
+      </div>
+    </div>
+    <div id="panelDetail" class="tab-panel on">
+      <div id="detailThreeCol" class="detail-three-col view-skills">
+        <div class="detail-left"><h3 class="fb-col-title">💬 Shift feedback</h3><div id="newFeedbackArea"></div></div>
+        <div class="detail-center"><div id="skillsArea" class="loading">⏳ Loading...</div></div>
+        <div class="detail-right"><h3 class="fb-col-title">📋 Past feedback</h3><div id="feedbackArea"><p class="loading">⏳ Loading feedback history...</p></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div><!-- end #appShell -->
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIGURE THIS — paste your Apps Script /exec URL here:
+// ─────────────────────────────────────────────────────────────────────────────
+var APPS_SCRIPT_URL = 'PASTE_YOUR_EXEC_URL_HERE';
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Global state ──
+var TOKEN = '';
+var START_TRAINEE = (function(){var m=location.search.match(/[?&]TraineeID=([^&]*)/);return m?decodeURIComponent(m[1]):'';}());
+var shiftsCache=[], currentTraineeId=null, currentTraineeName=null;
+var currentTrainee=null, _appDataCache=null, currentShift=null;
+var _saveTimer=null, _fbCacheByTrainee={}, _fbFormTrainee=null, _fbList=[];
+
+window.onerror=function(msg,src,line){try{var s=document.getElementById('initStatus');if(s){s.textContent='JS Error: '+msg+' (line '+line+')';s.style.color='#dc2626';s.style.display='';}}catch(e){}return true;};
+
+// ── API fetch layer (replaces google.script.run) ──────────────────────────
+function apiFetch(method, params) {
+  if (method === 'updateSkills' || method === 'submitFeedback') {
+    return fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ method: method, params: params }),
+      headers: { 'Content-Type': 'text/plain' }
+    }).then(function(r){ return r.json(); });
+  }
+  var url = APPS_SCRIPT_URL + '?api=' + encodeURIComponent(method);
+  if (params) {
+    for (var k in params) {
+      if (params.hasOwnProperty(k)) {
+        var v = params[k];
+        url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(
+          (typeof v === 'object') ? JSON.stringify(v) : String(v===null||v===undefined?'':v)
+        );
+      }
+    }
+  }
+  return fetch(url).then(function(r){ return r.json(); });
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+function esc(s){if(s==null)return'';var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function show(id){var all=document.querySelectorAll('.screen');for(var i=0;i<all.length;i++)all[i].classList.remove('on');var el=document.getElementById(id);if(el)el.classList.add('on');}
+function setStatus(msg,isErr){var el=document.getElementById('initStatus');if(!el)return;el.textContent=msg;el.style.color=isErr?'#dc2626':'#64748b';el.style.display=msg?'':'none';}
+function getFtoName(){try{return sessionStorage.getItem('orientation_ftoName')||'';}catch(e){return '';}}
+function setFtoName(n){try{sessionStorage.setItem('orientation_ftoName',n);}catch(e){}}
+function updateFtoLabel(){var n=getFtoName();var el=document.getElementById('ftoLabel');if(el)el.textContent=n?'Signed in as '+n:'';}
+function signOut(){try{sessionStorage.removeItem('orientation_token');}catch(e){}TOKEN='';showLogin();}
+
+// ── Login ─────────────────────────────────────────────────────────────────
+function showLogin(){
+  document.getElementById('loginWrap').style.display='flex';
+  document.getElementById('appShell').style.display='none';
+}
+function showApp(){
+  document.getElementById('loginWrap').style.display='none';
+  document.getElementById('appShell').style.display='';
+}
+(function initLogin(){
+  var btn=document.getElementById('signInBtn');
+  var errEl=document.getElementById('loginErr');
+  var pwEl=document.getElementById('pwInput');
+  function doLogin(){
+    var pw=(pwEl&&pwEl.value)||'';
+    if(!pw){if(errEl)errEl.textContent='Enter password.';return;}
+    if(btn)btn.disabled=true;
+    if(errEl)errEl.textContent='';
+    apiFetch('login',{password:pw}).then(function(r){
+      if(btn)btn.disabled=false;
+      if(r&&r.token){
+        TOKEN=r.token;
+        try{sessionStorage.setItem('orientation_token',TOKEN);}catch(e){}
+        showApp();
+        updateFtoLabel();
+        setStatus('',false);
+        show('screenList');
+        loadTraineeList();
+      } else {
+        if(errEl)errEl.textContent='Wrong password.';
+      }
+    }).catch(function(){
+      if(btn)btn.disabled=false;
+      if(errEl)errEl.textContent='Connection error. Check APPS_SCRIPT_URL.';
+    });
+  }
+  if(btn)btn.onclick=doLogin;
+  if(pwEl)pwEl.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();doLogin();}};
+
+  // Try restoring session from sessionStorage
+  try{
+    var saved=sessionStorage.getItem('orientation_token');
+    if(saved){
+      TOKEN=saved;
+      showApp();
+      updateFtoLabel();
+      setStatus('',false);
+      show('screenList');
+      loadTraineeList();
+      return;
+    }
+  }catch(e){}
+  showLogin();
+}());
+
+// ── Trainee list ──────────────────────────────────────────────────────────
+function renderTraineeList(){
+  var el=document.getElementById('traineeList');
+  var list=_appDataCache&&_appDataCache.trainees;
+  if(!list||list.length===0){el.innerHTML='<p class="loading">📋 No trainees on file.</p>';return;}
+  var active=[],archived=[];
+  for(var i=0;i<list.length;i++){var t=list[i];if(t.active!==false)active.push(t);else archived.push(t);}
+  function makeCard(t){
+    var contactParts=[];if(t.email)contactParts.push('Email: '+esc(t.email));if(t.phone)contactParts.push('Phone: '+esc(t.phone));
+    var contactLine=contactParts.length?contactParts.join(' • '):'';
+    var daysLine=(t.daysOnOrientation!=null)?''+t.daysOnOrientation+' days on orientation':'';
+    var shiftsLine=(t.shiftsMonthToDate!=null)?''+t.shiftsMonthToDate+' shifts this month':'';
+    var c=document.createElement('div');c.className='trainee-card';
+    c.innerHTML='<div class="name">'+esc(t.name)+'</div><div class="role">'+esc(t.role)+'</div>'+
+      (contactLine?'<div class="trainee-contact">'+contactLine+'</div>':'')+
+      (daysLine?'<div class="trainee-days">'+daysLine+'</div>':'')+
+      (shiftsLine?'<div class="trainee-days">'+shiftsLine+'</div>':'')+
+      '<div class="pct">'+t.percentComplete+'% <span>complete</span> ('+t.completed+'/'+t.total+')</div>'+
+      '<div class="pct-bar"><div class="pct-fill" style="width:'+t.percentComplete+'%"></div></div>';
+    (function(tobj){c.onclick=function(){currentTrainee=tobj;openTrainee(tobj.id,tobj.name);};})(t);
+    return c;
+  }
+  el.innerHTML='';
+  if(active.length===0&&archived.length===0){el.innerHTML='<p class="loading">📋 No trainees on file.</p>';return;}
+  var activeWrap=document.createElement('div');activeWrap.className='trainee-list';
+  if(active.length===0){activeWrap.innerHTML='<p class="loading">📋 No active trainees.</p>';}
+  else{for(var a=0;a<active.length;a++)activeWrap.appendChild(makeCard(active[a]));}
+  el.appendChild(activeWrap);
+  if(archived.length>0){
+    var archTitle=document.createElement('h2');archTitle.className='archived-heading';archTitle.textContent='📦 Archived trainees';
+    el.appendChild(archTitle);
+    var archWrap=document.createElement('div');archWrap.className='trainee-list trainee-list-archived';
+    for(var b=0;b<archived.length;b++)archWrap.appendChild(makeCard(archived[b]));
+    el.appendChild(archWrap);
+  }
+  if(START_TRAINEE){for(var j=0;j<list.length;j++){if(list[j].id===START_TRAINEE){currentTrainee=list[j];openTrainee(list[j].id,list[j].name);break;}}}
+}
+
+function loadTraineeList(){
+  var el=document.getElementById('traineeList');
+  if(_appDataCache){renderTraineeList();return;}
+  el.innerHTML='<p class="loading">⏳ Loading...</p>';
+  apiFetch('getAppData',{token:TOKEN}).then(function(data){
+    if(!data||data._error){
+      if(data&&data._error&&/session/i.test(data._error)){showLogin();return;}
+      el.innerHTML='<p class="err">'+esc((data&&data._error)||'Error loading data.')+'</p>';return;
+    }
+    _appDataCache=data;renderTraineeList();
+  }).catch(function(){el.innerHTML='<p class="err">Error loading data. Check APPS_SCRIPT_URL.</p>';});
+}
+
+// ── Shift/crew screen ─────────────────────────────────────────────────────
+function openTrainee(id,name){
+  currentTraineeId=id;currentTraineeName=name;
+  if(!currentTrainee&&_appDataCache&&_appDataCache.trainees){
+    for(var i=0;i<_appDataCache.trainees.length;i++){if(_appDataCache.trainees[i].id===id){currentTrainee=_appDataCache.trainees[i];break;}}
+  }
+  _fbFormTrainee=null;
+  var title=document.getElementById('shiftCrewTitle');
+  if(title)title.textContent=name+' — 📅 Select shift & who you are';
+  var shiftSel=document.getElementById('shiftSelect');
+  var crewSel=document.getElementById('crewSelect');
+  var fallback=document.getElementById('shiftCrewFallback');
+  var contBtn=document.getElementById('continueToSkills');
+  shiftSel.innerHTML='<option value="">Loading...</option>';
+  crewSel.innerHTML='<option value="">Select a shift first</option>';
+  if(contBtn)contBtn.style.display='none';
+  if(fallback)fallback.style.display='none';
+  show('screenShiftCrew');
+  apiFetch('getShifts',{traineeId:id,token:TOKEN}).then(function(shifts){
+    shiftsCache=shifts||[];
+    var noMsg=document.getElementById('noShiftsMsg');
+    if(fallback)fallback.style.display='none';
+    if(shiftsCache.length===0){
+      if(noMsg){noMsg.style.display='block';noMsg.textContent='No shifts found in last 72 hours / next 24 hours. Use TESTING option or manual override.';}
+      shiftsCache=[{dateStr:'TESTING — No real shift',unit:'Test',startStr:'—',endStr:'—',crewNames:['Mickey Mouse'],_test:true}];
+    } else {if(noMsg)noMsg.style.display='none';}
+    shiftSel.innerHTML='';
+    for(var i=0;i<shiftsCache.length;i++){
+      var s=shiftsCache[i];var o=document.createElement('option');o.value=i;
+      o.textContent=s.dateStr+' - '+s.unit+' '+s.startStr+'-'+s.endStr;
+      shiftSel.appendChild(o);
+    }
+    crewSel.innerHTML='<option value="">Select who you are</option>';
+    shiftSel.onchange=function(){
+      crewSel.innerHTML='<option value="">Select who you are</option>';
+      var idx=shiftSel.value;if(idx==='')return;
+      var sh=shiftsCache[parseInt(idx,10)];
+      if(sh&&sh.crewNames){
+        var norm=function(s){return String(s||'').trim().toUpperCase().replace(/\s+/g,' ');};
+        var traineeNorm=norm(currentTraineeName);
+        for(var k=0;k<sh.crewNames.length;k++){
+          if(norm(sh.crewNames[k])===traineeNorm)continue;
+          var op=document.createElement('option');op.value=sh.crewNames[k];op.textContent=sh.crewNames[k];crewSel.appendChild(op);
+        }
+      }
+      if(contBtn)contBtn.style.display='block';
+    };
+    shiftSel.onchange();
+  }).catch(function(){
+    shiftSel.innerHTML='<option value="">Error loading shifts</option>';
+    if(fallback)fallback.style.display='block';
+    var noMsg=document.getElementById('noShiftsMsg');if(noMsg){noMsg.style.display='block';noMsg.textContent='Could not load shifts. Use manual override.';}
+  });
+}
+
+// ── Skills ────────────────────────────────────────────────────────────────
+var _doneRe=/completed|reviewed|signed off|proficient/i;
+var _progRe=/in progress|needs work|recheck/i;
+function rowClass(st){return _doneRe.test(st)?'row-done':(_progRe.test(st)?'row-progress':'row-not');}
+function updateRowColor(sel){var row=sel.closest('tr')||sel.closest('.skill-card');if(row)row.className=(row.tagName==='TR'?'':'skill-card ')+rowClass(sel.value);scheduleSave();}
+function _showSaveIndicator(state,text){var ind=document.getElementById('saveIndicator'),dot=document.getElementById('saveDot'),txt=document.getElementById('saveIndicatorText');if(!ind)return;ind.style.display='flex';dot.className='save-dot '+state;txt.textContent=text;}
+function _hideSaveIndicator(){var ind=document.getElementById('saveIndicator');if(ind)ind.style.display='none';}
+function scheduleSave(){_showSaveIndicator('pending','Unsaved changes');if(_saveTimer)clearTimeout(_saveTimer);_saveTimer=setTimeout(function(){_saveTimer=null;saveSkills(true);},900);}
+function noteDraftKey(skillName){var s=String(skillName||'').replace(/\s+/g,'_').substring(0,80);return 'orientation_note_'+(currentTraineeId||'')+'_'+s;}
+function restoreNoteDrafts(area){var inputs=area.querySelectorAll('input.note-input');for(var i=0;i<inputs.length;i++){var inp=inputs[i];var key=noteDraftKey(inp.getAttribute('data-skill-name'));try{var draft=localStorage.getItem(key);if(draft&&!inp.value)inp.value=draft;}catch(e){}}}
+function attachNoteDraftListeners(area){var inputs=area.querySelectorAll('input.note-input');for(var i=0;i<inputs.length;i++){(function(input){var key=noteDraftKey(input.getAttribute('data-skill-name'));var t=null;input.addEventListener('input',function(){if(t)clearTimeout(t);t=setTimeout(function(){try{if(input.value)localStorage.setItem(key,input.value);else localStorage.removeItem(key);}catch(e){}},400);});})(inputs[i]);}}
+
+function renderSkills(skills){
+  var area=document.getElementById('skillsArea');
+  if(!skills||skills.length===0){area.innerHTML='<p class="loading">📋 No skills on file.</p>';return;}
+  var cats={},catOrder=[],totalDone=0;
+  for(var i=0;i<skills.length;i++){var s=skills[i];var cat=s.SkillCategory||'Uncategorized';if(!cats[cat]){cats[cat]=[];catOrder.push(cat);}cats[cat].push(s);if(_doneRe.test(String(s.CurrentStatus||'')))totalDone++;}
+  var pctTot=skills.length?Math.round(totalDone/skills.length*100):0;
+  var h='<div class="skills-summary"><div class="sum-row"><strong>📊 '+pctTot+'% complete overall</strong><span class="sum-count">'+totalDone+' / '+skills.length+' skills done</span></div><div class="pct-bar"><div class="pct-fill" style="width:'+pctTot+'%"></div></div></div>';
+  var opts=['Not Started','In Progress','Reviewed/Completed'];
+  for(var ci=0;ci<catOrder.length;ci++){
+    var catName=catOrder[ci];var cs=cats[catName];
+    var catDone=0;for(var ki=0;ki<cs.length;ki++){if(_doneRe.test(String(cs[ki].CurrentStatus||'')))catDone++;}
+    var catPct=cs.length?Math.round(catDone/cs.length*100):0;
+    h+='<div class="cat-section"><div class="cat-header"><span class="cat-name">'+esc(catName)+'</span><span class="cat-pct">'+catPct+'% ('+catDone+'/'+cs.length+')</span><div class="cat-bar"><div class="cat-fill" style="width:'+catPct+'%"></div></div></div>';
+    h+='<div class="skills-table-wrap"><table><thead><tr><th>Skill</th><th>Status</th><th>Note</th><th>Updated by</th></tr></thead><tbody>';
+    for(var si=0;si<cs.length;si++){
+      var sk=cs[si];var rc=rowClass(String(sk.CurrentStatus||''));var cur=String(sk.CurrentStatus||'').trim().toLowerCase();
+      var selH='';for(var oi=0;oi<opts.length;oi++){selH+='<option value="'+esc(opts[oi])+'"'+(cur===opts[oi].toLowerCase()?' selected':'')+'>'+esc(opts[oi])+'</option>';}
+      var rid=esc(String(sk.SkillRecordID||''));var sname=esc(sk.SkillName);
+      h+='<tr class="'+rc+'"><td>'+esc(sk.SkillName)+'</td><td><select class="skill-status" data-record-id="'+rid+'" data-skill-name="'+sname+'" data-current="'+esc(String(sk.CurrentStatus||''))+'" onchange="updateRowColor(this)">'+selH+'</select></td>';
+      h+='<td class="note-cell"><div class="last-note">'+esc(String(sk.LastNote||''))+'</div><input type="text" class="note-input" data-record-id="'+rid+'" data-skill-name="'+sname+'" placeholder="Add note..." onblur="if(this.value.trim())scheduleSave()" onkeydown="if(event.keyCode===13&&this.value.trim()){scheduleSave();}"></td>';
+      h+='<td>'+esc(String(sk.LastUpdatedBy||'-'))+'</td></tr>';
+    }
+    h+='</tbody></table></div><div class="skills-cards-wrap">';
+    for(var si=0;si<cs.length;si++){
+      var sk=cs[si];var rc=rowClass(String(sk.CurrentStatus||''));var cur=String(sk.CurrentStatus||'').trim().toLowerCase();
+      var selH='';for(var oi=0;oi<opts.length;oi++){selH+='<option value="'+esc(opts[oi])+'"'+(cur===opts[oi].toLowerCase()?' selected':'')+'>'+esc(opts[oi])+'</option>';}
+      var rid=esc(String(sk.SkillRecordID||''));var sname=esc(sk.SkillName);
+      h+='<div class="skill-card '+rc+'"><div class="skill-name">'+esc(sk.SkillName)+'</div>';
+      h+='<select class="skill-status" data-record-id="'+rid+'" data-skill-name="'+sname+'" data-current="'+esc(String(sk.CurrentStatus||''))+'" onchange="updateRowColor(this)">'+selH+'</select>';
+      h+='<div class="last-note">'+esc(String(sk.LastNote||''))+'</div>';
+      h+='<input type="text" class="note-input" data-record-id="'+rid+'" data-skill-name="'+sname+'" placeholder="Add note..." onblur="if(this.value.trim())scheduleSave()" onkeydown="if(event.keyCode===13&&this.value.trim()){scheduleSave();}"><div class="dm-row" style="margin-top:6px;"><span>Updated by:</span>'+esc(String(sk.LastUpdatedBy||'-'))+'</div></div>';
+    }
+    h+='</div></div>';
+  }
+  h+='<div class="save-bar"><button class="save primary" id="saveBtn">💾 Save changes</button><span class="msg" id="msg"></span><span class="save-indicator" id="saveIndicator" style="display:none"><span class="save-dot" id="saveDot"></span><span id="saveIndicatorText"></span></span></div>';
+  area.innerHTML=h;
+  restoreNoteDrafts(area);
+  attachNoteDraftListeners(area);
+  var saveBtnEl=document.getElementById('saveBtn');if(saveBtnEl)saveBtnEl.onclick=saveSkills;
+  renderProgressBlock();
+}
+
+function renderDetailMeta(){
+  var elLeft=document.getElementById('detailMetaLeft');var elRest=document.getElementById('detailMetaRest');if(!elLeft||!elRest)return;
+  var t=currentTrainee;
+  if(!t){elLeft.innerHTML='';elRest.innerHTML='';return;}
+  elLeft.innerHTML=esc(t.name);
+  var contactParts=[];if(t.email)contactParts.push(esc(t.email));if(t.phone)contactParts.push(esc(t.phone));var contactStr=contactParts.length?contactParts.join(' • '):'—';
+  var daysStr=(t.daysOnOrientation!=null)?''+t.daysOnOrientation+' days on orientation':'—';
+  var shiftsStr=(t.shiftsMonthToDate!=null)?''+t.shiftsMonthToDate:'—';
+  elRest.innerHTML='<div class="dm-row"><span>Role:</span>'+esc(t.role||'—')+'</div><div class="dm-row"><span>Contact:</span>'+contactStr+'</div><div class="dm-row"><span>Days on orientation:</span>'+daysStr+'</div><div class="dm-row"><span>Shifts this month:</span>'+shiftsStr+'</div>';
+}
+
+function renderProgressBlock(){
+  var elRight=document.getElementById('progressBlockRight');var elRest=document.getElementById('progressBlockRest');if(!elRight||!elRest)return;
+  var skills=_appDataCache&&_appDataCache.skillsByTrainee&&_appDataCache.skillsByTrainee[currentTraineeId];
+  if(!skills||!skills.length){elRight.textContent='—';elRest.innerHTML='';return;}
+  var totalDone=0;for(var i=0;i<skills.length;i++){if(_doneRe.test(String(skills[i].CurrentStatus||'')))totalDone++;}
+  var pct=Math.round(totalDone/skills.length*100);
+  elRight.textContent='📈 '+pct+'% complete ('+totalDone+'/'+skills.length+' skills)';
+  var completedWithDate=[];
+  for(var j=0;j<skills.length;j++){var s=skills[j];if(_doneRe.test(String(s.CurrentStatus||''))&&s.LastUpdatedAt){var dt=null;try{dt=new Date(s.LastUpdatedAt);}catch(e){}if(dt&&!isNaN(dt.getTime()))completedWithDate.push({date:dt.getTime(),dateStr:(dt.getMonth()+1)+'/'+dt.getDate()+'/'+dt.getFullYear()});}}
+  var byDate={};for(var k=0;k<completedWithDate.length;k++){var d=completedWithDate[k].dateStr;if(!byDate[d])byDate[d]=0;byDate[d]++;}
+  var dates=Object.keys(byDate).sort(function(a,b){var pa=a.split('/'),pb=b.split('/');return new Date(pa[2],pa[0]-1,pa[1])-new Date(pb[2],pb[0]-1,pb[1]);}).reverse();
+  var tl='';
+  if(dates.length){tl='<div class="pb-title">📈 Progress history</div><ul class="pb-timeline">';for(var di=0;di<dates.length;di++){tl+='<li>'+dates[di]+': '+byDate[dates[di]]+' skill(s) completed</li>';}tl+='</ul>';}
+  else{tl='<p class="pb-current" style="margin:0;">Progress history will appear when skill update dates are recorded.</p>';}
+  elRest.innerHTML=tl;
+}
+
+function goToSkills(){
+  renderDetailMeta();renderProgressBlock();
+  show('screenDetail');showDetailTab('skills');
+  loadFeedbackHistory();renderFeedbackForm();
+  var area=document.getElementById('skillsArea');
+  var cached=_appDataCache&&_appDataCache.skillsByTrainee&&_appDataCache.skillsByTrainee[currentTraineeId];
+  if(cached){renderSkills(cached);return;}
+  area.innerHTML='<p class="loading">⏳ Loading...</p>';
+  apiFetch('getSkills',{traineeId:currentTraineeId,token:TOKEN}).then(function(data){
+    renderSkills(data&&data.skills?data.skills:[]);
+  }).catch(function(){area.innerHTML='<p class="err">Error loading skills.</p>';});
+}
+
+function saveSkills(isAuto){
+  var area=document.getElementById('skillsArea');
+  var updateMap={};
+  var selects=area.querySelectorAll('select.skill-status');
+  for(var i=0;i<selects.length;i++){var s=selects[i];var v=s.value;var cur=s.getAttribute('data-current');if(v!==cur){var k=s.getAttribute('data-skill-name');if(!updateMap[k])updateMap[k]={skillRecordId:s.getAttribute('data-record-id'),skillName:k};updateMap[k].newStatus=v;}}
+  var notes=area.querySelectorAll('input.note-input');
+  for(var j=0;j<notes.length;j++){var n=notes[j];var nt=n.value.trim();if(nt){var nk=n.getAttribute('data-skill-name');if(!updateMap[nk])updateMap[nk]={skillRecordId:n.getAttribute('data-record-id'),skillName:nk};updateMap[nk].newNote=nt;}}
+  var updates=[];for(var uk in updateMap){if(updateMap.hasOwnProperty(uk))updates.push(updateMap[uk]);}
+  var msgEl=document.getElementById('msg');
+  if(updates.length===0){_hideSaveIndicator();if(!isAuto&&msgEl){msgEl.textContent='No changes to save.';msgEl.className='msg';}return;}
+  var saveBtn=document.getElementById('saveBtn');
+  if(saveBtn)saveBtn.disabled=true;
+  if(msgEl)msgEl.textContent='';
+  _showSaveIndicator('saving','Saving...');
+  apiFetch('updateSkills',{traineeId:currentTraineeId,updates:updates,token:TOKEN,ftoName:getFtoName()}).then(function(r){
+    if(r&&r._error){if(saveBtn)saveBtn.disabled=false;_hideSaveIndicator();if(msgEl){msgEl.textContent=r._error;msgEl.className='msg err';}return;}
+    for(var ui=0;ui<updates.length;ui++){if(updates[ui].newNote){try{localStorage.removeItem(noteDraftKey(updates[ui].skillName));}catch(e){}}}
+    _showSaveIndicator('saving','✅ Saved! Refreshing...');
+    _appDataCache=null;
+    setTimeout(function(){
+      apiFetch('getAppData',{token:TOKEN}).then(function(data){
+        if(data&&!data._error){_appDataCache=data;renderSkills((data.skillsByTrainee&&data.skillsByTrainee[currentTraineeId])||[]);}
+        if(saveBtn)saveBtn.disabled=false;
+        _showSaveIndicator('saved','✅ All changes saved');
+        setTimeout(_hideSaveIndicator,3000);
+      }).catch(function(){if(saveBtn)saveBtn.disabled=false;_hideSaveIndicator();});
+    },1200);
+  }).catch(function(err){
+    if(saveBtn)saveBtn.disabled=false;_hideSaveIndicator();
+    if(msgEl){msgEl.textContent=(err&&err.message?err.message:'Save failed.');msgEl.className='msg err';}
+  });
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function showDetailTab(name){
+  var wrap=document.getElementById('detailThreeCol');
+  if(wrap)wrap.className='detail-three-col view-'+(name==='skills'?'skills':'feedback');
+  var sb=document.getElementById('tabBtnSkills');var fb=document.getElementById('tabBtnFeedback');
+  if(sb)sb.className='tab-btn'+(name==='skills'?' tab-active':'');
+  if(fb)fb.className='tab-btn'+(name==='feedback'?' tab-active':'');
+  if(name==='feedback'){loadFeedbackHistory();renderFeedbackForm();}
+}
+
+// ── Feedback history ───────────────────────────────────────────────────────
+function loadFeedbackHistory(){
+  var area=document.getElementById('feedbackArea');
+  if(_fbCacheByTrainee[currentTraineeId]){renderFeedbackHistory(_fbCacheByTrainee[currentTraineeId]);return;}
+  area.innerHTML='<p class="loading">⏳ Loading feedback history...</p>';
+  apiFetch('getFeedback',{traineeId:currentTraineeId,token:TOKEN}).then(function(list){
+    _fbCacheByTrainee[currentTraineeId]=list||[];renderFeedbackHistory(_fbCacheByTrainee[currentTraineeId]);
+  }).catch(function(){area.innerHTML='<p class="err">Error loading feedback.</p>';});
+}
+
+function recBadgeClass(rec){if(!rec)return'';if(/advance|on track/i.test(rec))return'rec-track';if(/concern|escalate/i.test(rec))return'rec-concern';return'rec-caution';}
+
+function renderFeedbackCard(f){
+  var bc=recBadgeClass(f.Recommendation);
+  var h='<div class="fb-card"><div class="fb-meta">';
+  h+='<span><strong>Date:</strong> '+esc(f.ShiftDate||f.Timestamp||'-')+'</span>';
+  h+='<span><strong>Truck:</strong> '+esc(f.Truck||'-')+'</span>';
+  h+='<span><strong>FTO:</strong> '+esc(f.FTOName||'-')+'</span>';
+  if(f.Recommendation){h+='<span><span class="rec-badge '+bc+'">'+esc(f.Recommendation)+'</span></span>';}
+  h+='</div><div class="fb-sections">';
+  if(f.Strengths)     h+='<div class="fb-sec"><div class="fb-lbl">Strengths</div><div class="fb-val">'+esc(f.Strengths)+'</div></div>';
+  if(f.WeakAreas)     h+='<div class="fb-sec"><div class="fb-lbl">Weak Areas</div><div class="fb-val">'+esc(f.WeakAreas)+'</div></div>';
+  if(f.FocusNextShift)h+='<div class="fb-sec"><div class="fb-lbl">Focus Next Shift</div><div class="fb-val">'+esc(f.FocusNextShift)+'</div></div>';
+  if(f.MajorConcerns) h+='<div class="fb-sec fb-full"><div class="fb-lbl">Major Concerns</div><div class="fb-val">'+esc(f.MajorConcerns)+'</div></div>';
+  h+='</div></div>';
+  return h;
+}
+
+function renderFeedbackHistory(list){
+  _fbList=list||[];_fbCacheByTrainee[currentTraineeId]=_fbList;
+  var area=document.getElementById('feedbackArea');
+  if(!_fbList.length){area.innerHTML='<p class="loading">💬 No feedback yet for this trainee.</p>';return;}
+  var seen={},dates=[];
+  for(var i=0;i<_fbList.length;i++){var d=_fbList[i].ShiftDate||_fbList[i].Timestamp||'';if(d&&!seen[d]){seen[d]=true;dates.push(d);}}
+  var h='<div style="margin-bottom:1rem;"><label style="display:block;font-size:.875rem;font-weight:600;color:#475569;margin-bottom:6px;">📅 Shift Date</label><select id="fbDateSelect" style="max-width:320px;padding:.6rem .9rem;border:1px solid #e2e8f0;border-radius:8px;font-size:.9375rem;" onchange="filterFeedbackByDate(this.value)"><option value="">-- Select a shift date --</option>';
+  for(var di=0;di<dates.length;di++){h+='<option value="'+esc(dates[di])+'">'+esc(dates[di])+'</option>';}
+  h+='</select></div><div id="fbCardArea"></div>';
+  area.innerHTML=h;
+  if(dates.length){document.getElementById('fbDateSelect').value=dates[0];filterFeedbackByDate(dates[0]);}
+}
+
+function filterFeedbackByDate(dateVal){
+  var cardArea=document.getElementById('fbCardArea');if(!cardArea)return;
+  if(!dateVal){cardArea.innerHTML='';return;}
+  var matches=_fbList.filter(function(f){return (f.ShiftDate||f.Timestamp||'')==dateVal;});
+  if(!matches.length){cardArea.innerHTML='<p class="loading">📋 No entries for this date.</p>';return;}
+  var h='<div class="fb-list">';for(var i=0;i<matches.length;i++){h+=renderFeedbackCard(matches[i]);}h+='</div>';
+  cardArea.innerHTML=h;
+}
+
+// ── Feedback form ──────────────────────────────────────────────────────────
+function renderFeedbackForm(){
+  var area=document.getElementById('newFeedbackArea');
+  if(_fbFormTrainee===currentTraineeId&&area.innerHTML.trim()!=='')return;
+  _fbFormTrainee=currentTraineeId;
+  var shiftDate=currentShift?currentShift.dateStr:'';
+  var truck=currentShift?currentShift.unit:'';
+  var ftoName=getFtoName();
+  var h='<div class="fb-form"><h3>💬 Shift Feedback — '+esc(currentTraineeName)+'</h3>';
+  h+='<div class="auto-grid"><div class="auto-field"><div class="af-lbl">Trainee</div><div class="af-val">'+esc(currentTraineeName)+'</div></div>';
+  h+='<div class="auto-field"><div class="af-lbl">Shift Date</div><div class="af-val">'+esc(shiftDate||'—')+'</div></div>';
+  h+='<div class="auto-field"><div class="af-lbl">Truck</div><div class="af-val">'+esc(truck||'—')+'</div></div>';
+  h+='<div class="auto-field"><div class="af-lbl">FTO (you)</div><div class="af-val">'+esc(ftoName||'—')+'</div></div></div>';
+  var fields=[{id:'fbStrengths',label:'Strengths',req:true,rows:3},{id:'fbWeakAreas',label:'Weak Areas',req:true,rows:3},{id:'fbFocus',label:'Focus Next Shift',req:true,rows:2},{id:'fbConcerns',label:'Major Concerns',req:false,rows:2}];
+  for(var fi=0;fi<fields.length;fi++){var f=fields[fi];h+='<div class="fb-field"><label>'+f.label+(f.req?' <span style="color:#dc2626">*</span>':'')+'</label><textarea id="'+f.id+'" rows="'+f.rows+'" placeholder="'+f.label+'..."></textarea></div>';}
+  h+='<div class="fb-field"><label>Recommendation <span style="color:#dc2626">*</span></label><select id="fbRec" class="rec-select"><option value="">-- Select --</option>';
+  var recOpts=['Continue Rotation - On Track','Continue Rotation - Needs Improvement','Ready to Advance','Needs Additional Training Time','Serious Concerns - Escalate'];
+  for(var ri=0;ri<recOpts.length;ri++){h+='<option value="'+recOpts[ri]+'">'+recOpts[ri]+'</option>';}
+  h+='</select></div><div class="fb-submit-bar"><button class="primary" onclick="submitFeedbackForm()">📤 Submit Feedback</button><span id="fbMsg" class="msg"></span></div></div>';
+  area.innerHTML=h;
+}
+
+function submitFeedbackForm(){
+  var strengths=document.getElementById('fbStrengths').value.trim();
+  var weak=document.getElementById('fbWeakAreas').value.trim();
+  var focus=document.getElementById('fbFocus').value.trim();
+  var concerns=document.getElementById('fbConcerns').value.trim();
+  var rec=document.getElementById('fbRec').value;
+  var msgEl=document.getElementById('fbMsg');
+  if(!strengths||!weak||!focus||!rec){if(msgEl){msgEl.textContent='Please fill in all required fields.';msgEl.className='msg err';}return;}
+  var submitBtn=document.querySelector('.fb-form button.primary');
+  if(submitBtn)submitBtn.disabled=true;
+  if(msgEl){msgEl.textContent='Submitting...';msgEl.className='msg';}
+  var data={TraineeID:currentTraineeId,TraineeName:currentTraineeName,FTOName:getFtoName(),ShiftDate:currentShift?currentShift.dateStr:'',Truck:currentShift?currentShift.unit:'',Strengths:strengths,WeakAreas:weak,FocusNextShift:focus,MajorConcerns:concerns,Recommendation:rec};
+  apiFetch('submitFeedback',{data:data,token:TOKEN}).then(function(r){
+    if(msgEl){msgEl.textContent='Feedback submitted!'+(r&&r.id?' (ID: '+r.id+')':'');msgEl.className='msg';}
+    if(submitBtn)submitBtn.disabled=false;
+    ['fbStrengths','fbWeakAreas','fbFocus','fbConcerns'].forEach(function(fid){var el=document.getElementById(fid);if(el)el.value='';});
+    document.getElementById('fbRec').value='';
+    delete _fbCacheByTrainee[currentTraineeId];
+  }).catch(function(err){
+    if(submitBtn)submitBtn.disabled=false;
+    if(msgEl){msgEl.textContent=(err&&err.message?err.message:'Submit failed.');msgEl.className='msg err';}
+  });
+}
+
+// ── Print ──────────────────────────────────────────────────────────────────
+function buildPrintContent(){
+  var t=currentTrainee;var skills=_appDataCache&&_appDataCache.skillsByTrainee&&_appDataCache.skillsByTrainee[currentTraineeId];
+  if(!t){return '<p>No trainee selected.</p>';}
+  var printDate='';try{var d=new Date();printDate=(d.getMonth()+1)+'/'+d.getDate()+'/'+d.getFullYear();}catch(e){}
+  var header='<div class="print-header" style="margin-bottom:1rem;padding-bottom:.75rem;border-bottom:2px solid #0369a1;"><strong style="font-size:1.1rem;color:#0369a1;">Boothwyn EMS</strong><span style="margin-left:.75rem;color:#64748b;font-size:.9rem;">Employee Orientation Tracker</span></div>';
+  var footer='<div class="print-footer" style="margin-top:1.5rem;padding-top:.75rem;border-top:1px solid #e2e8f0;font-size:.75rem;color:#94a3b8;">Boothwyn EMS • Printed '+printDate+'</div>';
+  var contactParts=[];if(t.email)contactParts.push(t.email);if(t.phone)contactParts.push(t.phone);var contactStr=contactParts.length?contactParts.join(' • '):'—';
+  var daysStr=(t.daysOnOrientation!=null)?''+t.daysOnOrientation+' days on orientation':'—';
+  var h=header;
+  h+='<h1 style="font-size:1.5rem;margin:0 0 1rem;">Orientation Tracker — '+esc(t.name)+'</h1>';
+  h+='<p style="margin:0 0 .5rem;"><strong>Role:</strong> '+esc(t.role||'—')+'</p>';
+  h+='<p style="margin:0 0 .5rem;"><strong>Contact:</strong> '+contactStr+'</p>';
+  h+='<p style="margin:0 0 1.5rem;"><strong>Days on orientation:</strong> '+daysStr+'</p>';
+  if(!skills||!skills.length){h+='<p>📋 No skills on file.</p>';}else{
+    var totalDone=0;for(var i=0;i<skills.length;i++){if(_doneRe.test(String(skills[i].CurrentStatus||'')))totalDone++;}
+    var pct=skills.length?Math.round(totalDone/skills.length*100):0;
+    h+='<p style="margin-bottom:1rem;"><strong>'+pct+'% complete</strong> ('+totalDone+'/'+skills.length+' skills)</p>';
+    var cats={},catOrder=[];for(var i=0;i<skills.length;i++){var s=skills[i];var c=s.SkillCategory||'Uncategorized';if(!cats[c]){cats[c]=[];catOrder.push(c);}cats[c].push(s);}
+    for(var ci=0;ci<catOrder.length;ci++){var catName=catOrder[ci];var cs=cats[catName];
+      h+='<h2 style="font-size:1rem;margin:1rem 0 .5rem;border-bottom:1px solid #ccc;">'+esc(catName)+'</h2><table style="width:100%;border-collapse:collapse;margin-bottom:1rem;"><thead><tr><th style="text-align:left;padding:6px 8px;border:1px solid #ddd;">Skill</th><th style="padding:6px 8px;border:1px solid #ddd;">Status</th><th style="padding:6px 8px;border:1px solid #ddd;">Note</th><th style="padding:6px 8px;border:1px solid #ddd;">Updated by</th></tr></thead><tbody>';
+      for(var si=0;si<cs.length;si++){var sk=cs[si];h+='<tr><td style="padding:6px 8px;border:1px solid #ddd;">'+esc(sk.SkillName)+'</td><td style="padding:6px 8px;border:1px solid #ddd;">'+esc(String(sk.CurrentStatus||''))+'</td><td style="padding:6px 8px;border:1px solid #ddd;">'+esc(String(sk.LastNote||''))+'</td><td style="padding:6px 8px;border:1px solid #ddd;">'+esc(String(sk.LastUpdatedBy||'-'))+'</td></tr>';}
+      h+='</tbody></table>';
+    }
+  }
+  if(_fbList&&_fbList.length>0){var n=Math.min(5,_fbList.length);
+    h+='<h2 style="font-size:1rem;margin:1.5rem 0 .5rem;border-bottom:1px solid #ccc;">Recent Feedback (last '+n+')</h2>';
+    for(var fi=0;fi<n;fi++){var f=_fbList[fi];h+='<div style="margin-bottom:1rem;padding:8px;border:1px solid #eee;border-radius:6px;">';
+    h+='<p style="margin:0 0 4px;"><strong>'+esc(f.ShiftDate||f.Timestamp||'')+'</strong> • '+esc(f.FTOName||'')+(f.Recommendation?' • '+esc(f.Recommendation):'')+' </p>';
+    if(f.Strengths)h+='<p style="margin:0 0 4px;font-size:.875rem;"><strong>Strengths:</strong> '+esc(f.Strengths)+'</p>';
+    if(f.WeakAreas)h+='<p style="margin:0 0 4px;font-size:.875rem;"><strong>Weak areas:</strong> '+esc(f.WeakAreas)+'</p>';
+    if(f.FocusNextShift)h+='<p style="margin:0 0 4px;font-size:.875rem;"><strong>Focus:</strong> '+esc(f.FocusNextShift)+'</p>';
+    h+='</div>';}
+  }
+  h+=footer;
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Boothwyn EMS - '+esc(t.name)+'</title><style>body{font-family:Georgia,serif;margin:1in;font-size:12px;}@media print{body{margin:.5in;}}</style></head><body>'+h+'</body></html>';
+}
+function openPrintSkillCard(){var doc=buildPrintContent();var w=window.open('','_blank');if(!w){alert('Allow popups to print.');return;}w.document.write(doc);w.document.close();w.focus();w.onload=function(){w.print();w.close();};}
+
+// ── Wire-up ────────────────────────────────────────────────────────────────
+(function wire(){
+  var el;
+  el=document.getElementById('backToList');if(el)el.onclick=function(e){e.preventDefault();_appDataCache=null;show('screenList');loadTraineeList();};
+  el=document.getElementById('backLink');if(el)el.onclick=function(e){e.preventDefault();_appDataCache=null;show('screenList');loadTraineeList();};
+  el=document.getElementById('printSkillCardBtn');if(el)el.onclick=openPrintSkillCard;
+  el=document.getElementById('continueToSkills');if(el)el.onclick=function(){
+    var idx=document.getElementById('shiftSelect').value;
+    var name=document.getElementById('crewSelect').value;
+    if(idx!==''&&name){setFtoName(name);updateFtoLabel();currentShift=shiftsCache[parseInt(idx,10)]||null;goToSkills();}
+    else{var fb=document.getElementById('ftoNameFallback').value.trim();if(fb){setFtoName(fb);updateFtoLabel();currentShift=null;goToSkills();}}
+  };
+  el=document.getElementById('showManualOverride');if(el)el.onclick=function(e){e.preventDefault();var fb=document.getElementById('shiftCrewFallback');if(fb)fb.style.display='block';};
+  el=document.getElementById('continueFallback');if(el)el.onclick=function(){var fb=document.getElementById('ftoNameFallback').value.trim();if(fb){setFtoName(fb);updateFtoLabel();currentShift=null;goToSkills();}};
+}());
+</script>
+</body>
+</html>
